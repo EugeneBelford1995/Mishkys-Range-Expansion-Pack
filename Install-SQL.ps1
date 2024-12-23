@@ -1,25 +1,22 @@
 ﻿#https://www.sqlservercentral.com/articles/install-sql-server-using-powershell-desired-state-configuration-dsc
 
+#Interesting, but used DSC instead: https://medium.com/trendyol-tech/sql-server-unattended-installation-with-powershell-d12c7a732b00
+
 #Zip the SQL2022 folder, upload it to Research-DC, Expand-Archive
 #Re-work this so it runs via Invoke-Command -VMName "Research-DC" -FileName ".\Install-SQL.ps1"
 #Should install SQL Server on Dave-PC at that point using research\break.glass creds
 
-# Install PowerShell Desired State Configuration (DSC)
-Install-Module -Name SqlServerDsc
+Expand-Archive -Path "C:\SQL2022.zip" -DestinationPath "C:\"
 
-#Run this part on the hypervisor to extract SQL from the ISO and then create the Zip
-New-Item -Path "C:\VM_Stuff_Share\SQL2022" -ItemType Directory
-$mountResult = Mount-DiskImage -ImagePath 'C:\VM_Stuff_Share\ISOs\SQLServer2022-x64-ENU.iso' -PassThru
-$volumeInfo = $mountResult | Get-Volume
-$driveInfo = Get-PSDrive -Name $volumeInfo.DriveLetter
-Copy-Item -Path ( Join-Path -Path $driveInfo.Root -ChildPath '*' ) -Destination "C:\VM_Stuff_Share\SQL2022" -Recurse
-Dismount-DiskImage -ImagePath 'C:\VM_Stuff_Share\ISOs\SQLServer2022-x64-ENU.iso'
+# Install PowerShell Desired State Configuration (DSC)
+#Install-Module -Name SqlServerDsc
+Import-Module SqlServerDsc
 
 #DSC
 Configuration InstallSQLServer
 {
 Import-DscResource -ModuleName SqlServerDsc
-   Node "Dave-PC"
+   Node "Research-SQL"
     {
        WindowsFeature 'NetFramework45'
           {
@@ -32,7 +29,7 @@ Import-DscResource -ModuleName SqlServerDsc
                 InstanceName = "MSSQLSERVER"
                 Features = "SQLENGINE"
                 SourcePath = "C:\SQL2022"
-                SQLSysAdminAccounts = @("research\Administrator","research\Dave")
+                SQLSysAdminAccounts = @("research\Administrator","research\SQL.Admin")
                 DependsOn = "[WindowsFeature]NetFramework45"
 }
 }
@@ -40,3 +37,6 @@ Import-DscResource -ModuleName SqlServerDsc
 
 # Compile the DSC configuration file
 InstallSQLServer -OutputPath "C:\DSC"
+
+# Apply the DSC configuration
+Start-DscConfiguration -Path "C:\DSC" -Wait -Verbose -Force

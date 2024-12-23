@@ -19,6 +19,7 @@ New-ADGroup "ADCSAdmins" -GroupScope Universal -GroupCategory Security -Path "ou
 New-ADGroup "CTRs" -GroupScope Universal -GroupCategory Security -Path "ou=PlaceHolder,$ADRoot"
 New-ADComputer -Name "Research-Client" -SAMAccountName "Research-Client" -DisplayName "Research-Client" -Path "ou=PlaceHolder,$ADRoot"
 New-ADComputer -Name "Dave-PC" -SAMAccountName "Dave-PC" -DisplayName "Dave-PC" -Path "ou=PlaceHolder,$ADRoot"
+New-ADComputer -Name "Research-SQL" -SAMAccountName "Research-SQL" -DisplayName "Research-SQL" -Path "ou=PlaceHolder,$ADRoot"
 
 #Store a password for users
 [string]$DSRMPassword = 'SuperSecretCertPassword12!@'

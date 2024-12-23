@@ -2,20 +2,20 @@
 Set-Location AD:
 $ADRoot = (Get-ADDomain).DistinguishedName
 
-#Give Dave WriteProperty 'ms-DS-Allowed-To-Act-On-Behalf-Of-Other-Identity' on a given computer,
+#Give MSSQL WriteProperty 'ms-DS-Allowed-To-Act-On-Behalf-Of-Other-Identity' on a given computer,
 #or comment that line out, give them WriteDACL, and let them figure out how to give themselves the right required
 $victim = (Get-ADComputer "cn=Research-Client,ou=PlaceHolder,$ADRoot" -Properties *).DistinguishedName
 $acl = Get-ACL $victim
-$user = New-Object System.Security.Principal.SecurityIdentifier (Get-ADUser "Dave").SID
+$user = New-Object System.Security.Principal.SecurityIdentifier (Get-ADUser "MSSQL").SID
 #$acl.AddAccessRule((New-Object System.DirectoryServices.ActiveDirectoryAccessRule $user,"WriteProperty","ALLOW",([GUID]("3f78c3e5-f79a-46bd-a0b8-9d18116ddc79")).guid,"None",([GUID]("00000000-0000-0000-0000-000000000000")).guid))
 $acl.AddAccessRule((New-Object System.DirectoryServices.ActiveDirectoryAccessRule $user,"WriteDACL","ALLOW",([GUID]("00000000-0000-0000-0000-000000000000")).guid,"None",([GUID]("00000000-0000-0000-0000-000000000000")).guid))
 #Apply above ACL rules
 Set-ACL $victim $acl
 
-#Give Dave the ability to create default computer accounts in AD
+#Give MSSQL the ability to create default computer accounts in AD
 $victim = (Get-ADObject "cn=computers,$ADRoot" -Properties *).DistinguishedName
 $acl = Get-ACL $victim
-$user = New-Object System.Security.Principal.SecurityIdentifier (Get-ADUser "Dave").SID
+$user = New-Object System.Security.Principal.SecurityIdentifier (Get-ADUser "MSSQL").SID
 $acl.AddAccessRule((New-Object System.DirectoryServices.ActiveDirectoryAccessRule $user,"CreateChild","ALLOW",([GUID]("00000000-0000-0000-0000-000000000000")).guid,"None",([GUID]("00000000-0000-0000-0000-000000000000")).guid))
 #Apply above ACL rules
 Set-ACL $victim $acl

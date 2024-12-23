@@ -46,7 +46,8 @@ Start-VM -Name $VMName
 
 Create-VM -VMName "Research-DC"           #Create the cousin domain's DC
 Create-VM -VMName "Research-Client"       #Create the cousin domain's first client
-Create-VM -VMName "Dave-PC"     #Create the cousin domain's second client
+Create-VM -VMName "Research-SQL"          #Create the cousin domian's MSSQL server
+Create-VM -VMName "Dave-PC"               #Create the cousin domain's toe hold VM
 Write-Host "Please wait, the VMs are booting up."
 Start-Sleep -Seconds 180
 
@@ -118,7 +119,7 @@ Enable-VMIntegrationService "Guest Service Interface" -VMName "Research-DC"
 Copy-VMFile "Research-DC" -SourcePath ".\HTTPsCertificates.json" -DestinationPath "C:\HTTPsCertificates.json" -CreateFullPath -FileSource Host
 Start-Sleep -Seconds 60
 Invoke-Command -VMName "Research-DC" -FilePath '.\VMConfig (ResearchDC P5).ps1' -Credential $CousinDomainAdminCredObject   #Install & enables AD CS role
-Invoke-Command -VMName "Research-DC" -FilePath '.\VMConfig (ResearchDC P6).ps1' -Credential $CousinDomainAdminCredObject   #Delegate lab\Enterprise Admins rights on Research-Client
+Invoke-Command -VMName "Research-DC" -FilePath '.\VMConfig (ResearchDC P6).ps1' -Credential $CousinDomainAdminCredObject   #Delegate MSSQL rights on Research-Client
 
 
 # --- Research-Client --
@@ -136,7 +137,7 @@ Invoke-Command -VMName "Research-Client" -FilePath '.\VMConfig (ResearchClient P
 Start-Sleep -Seconds 120
 Invoke-Command -VMName "Research-DC" {setspn -S CIFS/research-client.research.local research\research-client} -Credential $CousinDomainAdminCredObject
 Invoke-Command -VMName "Research-DC" {setspn -S HTTP/research-client.research.local research\research-client} -Credential $CousinDomainAdminCredObject
-Invoke-Command -VMName "Research-Client" -FilePath '.\VMConfig (ResearchClient P3).ps1' -Credential $CousinDomainAdminCredObject   #Puts ADCS.Admin in credman & local admins
+Invoke-Command -VMName "Research-Client" -FilePath '.\VMConfig (ResearchClient P3).ps1' -Credential $CousinDomainAdminCredObject   #Puts ADCS.Admin in scheduled tasks & local admins
 
 
 # --- Dave-PC, formerly called Research-ClientII ---
@@ -153,6 +154,30 @@ Start-Sleep -Seconds 120
 Invoke-Command -VMName "Dave-PC" -FilePath '.\VMConfig (ResearchClient P2).ps1' -Credential $DavePCLocalCredObject    #Joins research.local
 Start-Sleep -Seconds 120
 Invoke-Command -VMName "Dave-PC" -FilePath '.\VMConfig (ResearchClientII P3).ps1' -Credential $CousinDomainAdminCredObject   #Puts Dave in local admins
+
+# --- Research-SQL ---
+
+#VM's local admin after re-naming the computer:
+[string]$userName = "Research-SQL\Administrator"
+[string]$userPassword = 'SuperSecureLocalPassword123!@#'
+# Convert to SecureString
+[securestring]$secStringPassword = ConvertTo-SecureString $userPassword -AsPlainText -Force
+[pscredential]$DavePCLocalCredObject = New-Object System.Management.Automation.PSCredential ($userName, $secStringPassword)
+
+Set-Location "C:\VM_Stuff_Share\Lab\CousinDomain"
+Invoke-Command -VMName "Research-SQL" -FilePath '.\VMConfig (ResearchSQL P1).ps1' -Credential $InitialCredObject  #Configs IPv4, disables IPv6, renames the VM
+Start-Sleep -Seconds 120
+Invoke-Command -VMName "Research-SQL" -FilePath '.\VMConfig (ResearchClient P2).ps1' -Credential $DavePCLocalCredObject    #Joins research.local
+Start-Sleep -Seconds 120
+
+Enable-VMIntegrationService "Guest Service Interface" -VMName "Research-SQL"
+Copy-VMFile "Research-SQL" -SourcePath ".\SQL2022.zip" -DestinationPath "C:\SQL2022.zip" -CreateFullPath -FileSource Host
+
+#Install PowerShell Desired State Configuration (DSC)
+Invoke-Command -VMName "Research-SQL" {Install-Module -Name SqlServerDsc} -Credential $CousinDomainAdminCredObject   #Installs the Desired State Configuration module
+Invoke-Command -VMName "Research-DC" -FilePath ".\Create-SQLUser.ps1" -Credential $CousinDomainAdminCredObject       #Creates users to run & manage MSSQL, gives Dave pwd reset
+Invoke-Command -VMName "Research-SQL" -FilePath ".\Install-SQL.ps1" -Credential $CousinDomainAdminCredObject         #Uses DSC to setup MSSQL on Research-SQL
+Invoke-Command -VMName "Research-SQL" -FilePath ".\Config-SQL.ps1" -Credential $CousinDomainAdminCredObject          #[mis]configs Research-SQL IOT put it in the escalation path
 
 } #Close the Create-CousinDomain function
 
